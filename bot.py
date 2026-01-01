@@ -1,37 +1,44 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 import datetime
-
-# التوكن الخاص بالبوت
-TOKEN = "8356379468:AAGLuUh5BuR7rUOcKLB7tXCVo-dGPxqgd3A"
-
-async def signal_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    pair = update.message.text.upper()
-    hour = datetime.datetime.utcnow().hour
-
-    # منطق بسيط لإشارات التداول
-    if "AED" in pair or "CNY" in pair:
-        signal = "⬇️ هبوط"
-    elif hour % 2 == 0:
-        signal = "⬆️ صعود"
-    else:
-        signal = "⬇️ هبوط"
-
-    await update.message.reply_text(f"{signal} لمدة 2 دقيقة")
-
-# إنشاء تطبيق البوت وتشغيله
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, signal_bot))
-
-# تشغيل البوت في الخلفية
 import threading
 
+# ---------------------- التوكن ----------------------
+TOKEN = "8356379468:AAGLuUh5BuR7rUOcKLB7tXCVo-dGPxqgd3A"
+
+# ---------------------- قائمة الأزواج الأكثر سيولة ----------------------
+major_pairs = [
+    "EURUSD", "USDJPY", "GBPUSD", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+    "EURJPY", "EURGBP", "EURCHF", "EURAUD", "EURCAD", "EURNZD",
+    "GBPJPY", "GBPCHF", "GBPAUD", "GBPCAD", "GBPNZD",
+    "AUDJPY", "AUDNZD", "AUDCHF", "AUDCAD",
+    "CADJPY", "CADCHF", "NZDJPY", "NZDCHF"
+]
+
+# ---------------------- دالة البوت ----------------------
+async def signal_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # تحويل الرسالة للحروف الكبيرة وحذف الشرط / والمسافات
+    pair = update.message.text.upper().replace("/", "").replace(" ", "")
+    hour = datetime.datetime.utcnow().hour
+
+    if pair in major_pairs:
+        signal = "⬆️ صعود" if hour % 2 == 0 else "⬇️ هبوط"
+        await update.message.reply_text(f"{signal} لمدة 2 دقيقة")
+    else:
+        # أي نص آخر أو /start
+        await update.message.reply_text("أرسل زوج عملات صحيح، مثال: EURUSD")
+
+# ---------------------- إعداد البوت ----------------------
+app = ApplicationBuilder().token(TOKEN).build()
+app.add_handler(MessageHandler(filters.TEXT, signal_bot))  # يلتقط أي رسالة نصية
+
+# ---------------------- تشغيل البوت في خلفية Thread ----------------------
 def run_bot():
     app.run_polling()
 
 threading.Thread(target=run_bot).start()
 
-# --------- لتجاوز شرط Render للمنفذ HTTP فقط ---------
+# ---------------------- Flask لتجاوز شرط Render للمنفذ HTTP ----------------------
 import os
 from flask import Flask
 
@@ -42,6 +49,5 @@ port = int(os.environ.get("PORT", 4000))
 def home():
     return "Bot is running!"
 
-# تشغيل Flask على منفذ HTTP (لن يؤثر على البوت)
 if __name__ == "__main__":
     web_app.run(host="0.0.0.0", port=port)
